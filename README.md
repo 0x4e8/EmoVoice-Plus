@@ -1,12 +1,5 @@
 # EmoVoice-Plus Demo
 
-> 目录结构（已按你的截图对齐）：
-> - `README.md` 在仓库根目录
-> - 音频文件都在 `demo/` 目录下：`demo/1-1.wav ~ demo/4-2.wav`
->
-> GitHub 网页里要让 `<audio>` 正常播放，必须用 `?raw=1` 拿到原始音频流（否则会读取到 blob 预览页 HTML，显示 0:00）。
-
----
 
 ## 注入 neutral → happy 激活方向值
 
@@ -19,8 +12,8 @@
 
   <tr>
     <th align="left">内容</th>
-    <th align="center">左侧（*-1）</th>
-    <th align="center">右侧（*-2）</th>
+    <th align="center">原始的语音>yuan
+    <th align="center">转化后语音>yu y
   </tr>
 
   <tr>
@@ -82,8 +75,8 @@
 
   <tr>
     <th align="left">内容</th>
-    <th align="center">左侧（*-1）</th>
-    <th align="center">右侧（*-2）</th>
+    <th align="center">原始的语音>yuan
+    <th align="center">转化后语音>zth>
   </tr>
 
   <tr>
