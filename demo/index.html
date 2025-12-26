@@ -1,1 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EmoVoice-Plus Demo</title>
+  <style>
+    :root { --border:#d0d7de; --bg:#fff; --muted:#57606a; }
+    body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,"Noto Sans","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+           margin: 32px; background: var(--bg); color:#24292f; }
+    h1 { margin: 0 0 8px; font-size: 44px; }
+    h2 { margin: 32px 0 16px; font-size: 34px; }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    col.content { width: 70%; }
+    col.aud { width: 15%; }
+    th, td { border: 1px solid var(--border); padding: 18px; vertical-align: middle; }
+    th { background:#f6f8fa; text-align: left; font-size: 22px; }
+    td.content { word-break: break-word; line-height: 1.7; font-size: 20px; }
+    td.audio { text-align: center; }
+    audio { width: 100%; max-width: 240px; }
+    .label { font-weight: 700; margin-right: 8px; }
+    .sub { color: var(--muted); font-size: 14px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>EmoVoice-Plus Demo</h1>
+  <hr>
+
+  <h2>注入 neutral → happy 激活方向值</h2>
+
+  <table>
+    <colgroup>
+      <col class="content">
+      <col class="aud">
+      <col class="aud">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>内容</th>
+        <th style="text-align:center">原始的语音 &gt; yuan</th>
+        <th style="text-align:center">转化后语音 &gt; yuy</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="content">
+          <span class="label">文本：</span> A day spent laughing with friends is a day well spent.<br>
+          <span class="label">情绪描述：</span> Communal joy found within the comfort of familiar, happy faces.
+        </td>
+        <td class="audio">
+          <audio controls preload="none" src="1-1.wav"></audio>
+          <div class="sub">1-1.wav</div>
+        </td>
+        <td class="audio">
+          <audio controls preload="none" src="1-2.wav"></audio>
+          <div class="sub">1-2.wav</div>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="content">
+          <span class="label">文本：</span> Look at that rainbow! It's breathtaking and perfectly magical.<br>
+          <span class="label">情绪描述：</span> A spontaneous, shared moment of wonder and joy at nature's beauty.
+        </td>
+        <td class="audio">
+          <audio controls preload="none" src="2-1.wav"></audio>
+          <div class="sub">2-1.wav</div>
+        </td>
+        <td class="audio">
+          <audio controls preload="none" src="2-2.wav"></audio>
+          <div class="sub">2-2.wav</div>
+        </td>
+      </tr>
+
+      <tr>
+        <td class="content">
+          <span class="label">文本：</span> She spun around in the meadow, arms outstretched to embrace the sunlit sky.<br>
+          <span class="label">情绪描述：</span> Articulating an unbridled joy that embraces the world with spontaneous, exuberant motion.
+        </td>
+        <td class="audio">
+          <audio controls preload="none" src="3-1.wav"></audio>
+          <div class="sub">3-1.wav</div>
+        </td>
+        <td class="audio">
+          <audio controls preload="none" src="3-2.wav"></audio>
+          <div class="sub">3-2.wav</div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2 style="margin-top:40px;">注入 happy → sad 激活方向值</h2>
+
+  <table>
+    <colgroup>
+      <col class="content">
+      <col class="aud">
+      <col class="aud">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>内容</th>
+        <th style="text-align:center">左侧（4-1）</th>
+        <th style="text-align:center">右侧（4-2）</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="content">
+          <span class="label">文本：</span> She spun around in the meadow, arms outstretched to embrace the sunlit sky.<br>
+          <span class="label">情绪描述：</span> Articulating an unbridled joy that embraces the world with spontaneous, exuberant motion.
+        </td>
+        <td class="audio">
+          <audio controls preload="none" src="4-1.wav"></audio>
+          <div class="sub">4-1.wav</div>
+        </td>
+        <td class="audio">
+          <audio controls preload="none" src="4-2.wav"></audio>
+          <div class="sub">4-2.wav</div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</body>
+</html>
 
