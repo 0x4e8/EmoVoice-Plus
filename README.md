@@ -1,12 +1,7 @@
 # EmoVoice-Plus Demo
 
-> 左半部分语音对应 `*-1.wav`（1-1、2-1、3-1、4-1），右半部分语音对应 `*-2.wav`（1-2、2-2、3-2、4-2）。
->
-> 说明：不同 Markdown 渲染器对 `<audio>` 支持不一；若播放器未显示，请点击每个音频下方的链接播放。
 
----
-
-## 注入 neutral → happy 激活方向值
+### 注入 neutral → happy 激活方向值
 
 <table style="width:100%; table-layout:fixed;">
   <colgroup>
@@ -28,7 +23,7 @@
     </td>
     <td align="center">
       <audio controls preload="none" src="1-1.wav" style="width:100%; max-width:220px;"></audio><br/>
-      <a href="1-1.wav">▶️ 1-1.wav</a>
+      <a href="demo/1-1.wav">▶️ 1-1.wav</a>
     </td>
     <td align="center">
       <audio controls preload="none" src="1-2.wav" style="width:100%; max-width:220px;"></audio><br/>
@@ -69,7 +64,7 @@
 
 ---
 
-## 注入 happy → sad 激活方向值
+### 注入 happy → sad 激活方向值
 
 <table style="width:100%; table-layout:fixed;">
   <colgroup>
