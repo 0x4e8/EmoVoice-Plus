@@ -1,9 +1,10 @@
 # EmoVoice-Plus Demo
 
-> 目录结构：本 README 位于 `demo/` 目录下，并与 `1-1.wav ~ 4-2.wav` 同级。
+> 目录结构（已按你的截图对齐）：
+> - `README.md` 在仓库根目录
+> - 音频文件都在 `demo/` 目录下：`demo/1-1.wav ~ demo/4-2.wav`
 >
-> 你在 GitHub 网页里点播放/链接会“跳转到网页”，原因是 GitHub 默认打开的是 `blob` 预览页（HTML），不是音频原始数据。
-> 下面的写法为每个音频提供 **两种 source**：先尝试本地相对路径（适用于本地预览/静态站点），失败则回退到 `?raw=1`（适用于 GitHub 网页）。
+> GitHub 网页里要让 `<audio>` 正常播放，必须用 `?raw=1` 拿到原始音频流（否则会读取到 blob 预览页 HTML，显示 0:00）。
 
 ---
 
@@ -28,18 +29,12 @@
       <b>情绪描述：</b> Communal joy found within the comfort of familiar, happy faces.
     </td>
     <td align="center">
-      <audio controls preload="none" style="width:100%; max-width:220px;">
-        <source src="1-1.wav" type="audio/wav"/>
-        <source src="1-1.wav?raw=1" type="audio/wav"/>
-      </audio><br/>
-      <a href="1-1.wav">▶️ 1-1.wav</a> · <a href="1-1.wav?raw=1">raw</a>
+      <audio controls preload="none" src="demo/1-1.wav?raw=1" style="width:100%; max-width:220px;"></audio><br/>
+      <a href="demo/1-1.wav?raw=1">▶️ demo/1-1.wav</a>
     </td>
     <td align="center">
-      <audio controls preload="none" style="width:100%; max-width:220px;">
-        <source src="1-2.wav" type="audio/wav"/>
-        <source src="1-2.wav?raw=1" type="audio/wav"/>
-      </audio><br/>
-      <a href="1-2.wav">▶️ 1-2.wav</a> · <a href="1-2.wav?raw=1">raw</a>
+      <audio controls preload="none" src="demo/1-2.wav?raw=1" style="width:100%; max-width:220px;"></audio><br/>
+      <a href="demo/1-2.wav?raw=1">▶️ demo/1-2.wav</a>
     </td>
   </tr>
 
@@ -49,18 +44,12 @@
       <b>情绪描述：</b> A spontaneous, shared moment of wonder and joy at nature's beauty.
     </td>
     <td align="center">
-      <audio controls preload="none" style="width:100%; max-width:220px;">
-        <source src="2-1.wav" type="audio/wav"/>
-        <source src="2-1.wav?raw=1" type="audio/wav"/>
-      </audio><br/>
-      <a href="2-1.wav">▶️ 2-1.wav</a> · <a href="2-1.wav?raw=1">raw</a>
+      <audio controls preload="none" src="demo/2-1.wav?raw=1" style="width:100%; max-width:220px;"></audio><br/>
+      <a href="demo/2-1.wav?raw=1">▶️ demo/2-1.wav</a>
     </td>
     <td align="center">
-      <audio controls preload="none" style="width:100%; max-width:220px;">
-        <source src="2-2.wav" type="audio/wav"/>
-        <source src="2-2.wav?raw=1" type="audio/wav"/>
-      </audio><br/>
-      <a href="2-2.wav">▶️ 2-2.wav</a> · <a href="2-2.wav?raw=1">raw</a>
+      <audio controls preload="none" src="demo/2-2.wav?raw=1" style="width:100%; max-width:220px;"></audio><br/>
+      <a href="demo/2-2.wav?raw=1">▶️ demo/2-2.wav</a>
     </td>
   </tr>
 
@@ -70,18 +59,12 @@
       <b>情绪描述：</b> Articulating an unbridled joy that embraces the world with spontaneous, exuberant motion.
     </td>
     <td align="center">
-      <audio controls preload="none" style="width:100%; max-width:220px;">
-        <source src="3-1.wav" type="audio/wav"/>
-        <source src="3-1.wav?raw=1" type="audio/wav"/>
-      </audio><br/>
-      <a href="3-1.wav">▶️ 3-1.wav</a> · <a href="3-1.wav?raw=1">raw</a>
+      <audio controls preload="none" src="demo/3-1.wav?raw=1" style="width:100%; max-width:220px;"></audio><br/>
+      <a href="demo/3-1.wav?raw=1">▶️ demo/3-1.wav</a>
     </td>
     <td align="center">
-      <audio controls preload="none" style="width:100%; max-width:220px;">
-        <source src="3-2.wav" type="audio/wav"/>
-        <source src="3-2.wav?raw=1" type="audio/wav"/>
-      </audio><br/>
-      <a href="3-2.wav">▶️ 3-2.wav</a> · <a href="3-2.wav?raw=1">raw</a>
+      <audio controls preload="none" src="demo/3-2.wav?raw=1" style="width:100%; max-width:220px;"></audio><br/>
+      <a href="demo/3-2.wav?raw=1">▶️ demo/3-2.wav</a>
     </td>
   </tr>
 </table>
@@ -109,18 +92,12 @@
       <b>情绪描述：</b> Articulating an unbridled joy that embraces the world with spontaneous, exuberant motion.
     </td>
     <td align="center">
-      <audio controls preload="none" style="width:100%; max-width:220px;">
-        <source src="4-1.wav" type="audio/wav"/>
-        <source src="4-1.wav?raw=1" type="audio/wav"/>
-      </audio><br/>
-      <a href="4-1.wav">▶️ 4-1.wav</a> · <a href="4-1.wav?raw=1">raw</a>
+      <audio controls preload="none" src="demo/4-1.wav?raw=1" style="width:100%; max-width:220px;"></audio><br/>
+      <a href="demo/4-1.wav?raw=1">▶️ demo/4-1.wav</a>
     </td>
     <td align="center">
-      <audio controls preload="none" style="width:100%; max-width:220px;">
-        <source src="4-2.wav" type="audio/wav"/>
-        <source src="4-2.wav?raw=1" type="audio/wav"/>
-      </audio><br/>
-      <a href="4-2.wav">▶️ 4-2.wav</a> · <a href="4-2.wav?raw=1">raw</a>
+      <audio controls preload="none" src="demo/4-2.wav?raw=1" style="width:100%; max-width:220px;"></audio><br/>
+      <a href="demo/4-2.wav?raw=1">▶️ demo/4-2.wav</a>
     </td>
   </tr>
 </table>
