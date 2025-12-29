@@ -34,7 +34,7 @@ bash examples/tts/scripts/gene_style_emb.sh
 bash examples/tts/scripts/ft_EmoVoice-PP-align.sh
 ```
 训练脚本中，```train_config.align.enable=true```表示使用交叉熵损失+对比损失进行训练，```train_config.align.enable=false```表示使用仅交叉熵损失进行训练。
-也可以使用我训练好的模型，下载地址为(ModelScope)```FanshuoZeng/EmoVoice-Plus-models```。
+也可以使用我训练好的模型，下载地址为[EmoVoice-Plus-models](https://modelscope.cn/models/FanshuoZeng/EmoVoice-Plus-models)。
 快速下载
 ```
 from modelscope import snapshot_download
