@@ -48,3 +48,6 @@ bash examples/tts/scripts/inference_EmoVoice-PP.sh
 ```
 推理脚本中，```decode_config.emosteer.enable=true```表示使用情感激活注入，```decode_config.emosteer.enable=false```表示不使用情感激活注入。
 
+## 致谢
+非常感谢[EmoVoice](https://github.com/yanghaha0908/EmoVoice)的作者们，本项目是基于他们的工作完成的。
+
