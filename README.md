@@ -14,7 +14,8 @@
 首先按照 [EmoVoice](https://github.com/yanghaha0908/EmoVoice) 配置环境、下载预训练模型权重以及情感微调数据集。
 
 ### 下载用于计算情感激活方向的数据集
-下载地址为(ModelScope)```FanshuoZeng/EmoVoice-Plus-triplets_wav_data```。
+下载地址为[EmoVoice-Plus-triplets_wav_data](https://modelscope.cn/datasets/FanshuoZeng/EmoVoice-Plus-triplets_wav_data)。
+
 快速下载
 ```
 from modelscope.msdatasets import MsDataset
@@ -35,6 +36,7 @@ bash examples/tts/scripts/ft_EmoVoice-PP-align.sh
 ```
 训练脚本中，```train_config.align.enable=true```表示使用交叉熵损失+对比损失进行训练，```train_config.align.enable=false```表示使用仅交叉熵损失进行训练。
 也可以使用我训练好的模型，下载地址为[EmoVoice-Plus-models](https://modelscope.cn/models/FanshuoZeng/EmoVoice-Plus-models)。
+
 快速下载
 ```
 from modelscope import snapshot_download
