@@ -1,0 +1,651 @@
+build_steering_activations.py文件如下：
+
+import os
+import json
+import math
+import random
+import inspect
+import argparse
+from typing import Dict, List, Optional, Tuple
+
+import torch
+import torchaudio
+
+
+# -----------------------------
+# Helpers: IO
+# -----------------------------
+def read_list_file(path: str) -> List[str]:
+    """Read .txt list (one wav path per line)."""
+    items = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            p = line.strip()
+            if not p:
+                continue
+            items.append(p)
+    return items
+
+
+def load_prompt_map(path: str) -> Dict[str, List[str]]:
+    """
+    Load prompt map from:
+      - .json (dict emotion -> list[wav])
+      - .txt (treated as neutral list only)
+    """
+    if path.endswith(".json"):
+        with open(path, "r", encoding="utf-8") as f:
+            obj = json.load(f)
+        if not isinstance(obj, dict):
+            raise ValueError("prompt_lists_json must be a dict emotion->list[wav]")
+        out = {}
+        for k, v in obj.items():
+            if isinstance(v, str) and v.endswith(".txt"):
+                out[k] = read_list_file(v)
+            elif isinstance(v, list):
+                out[k] = v
+            else:
+                raise ValueError(f"Invalid entry for '{k}': must be list[wav] or a .txt path")
+        return out
+    elif path.endswith(".txt"):
+        return {"neutral": read_list_file(path)}
+    else:
+        raise ValueError("prompt_lists_json must be .json or .txt")
+
+
+def ensure_exists(path: str):
+    if not os.path.exists(path):
+        raise FileNotFoundError(path)
+
+
+def maybe_truncate_list(xs: List[str], max_n: int, seed: int) -> List[str]:
+    if max_n <= 0 or len(xs) <= max_n:
+        return xs
+    rnd = random.Random(seed)
+    ys = xs[:]
+    rnd.shuffle(ys)
+    return ys[:max_n]
+
+
+# -----------------------------
+# CosyVoice prompt condition extraction
+# -----------------------------
+@torch.no_grad()
+def extract_prompt_condition(codec_decoder, wav16k: torch.Tensor, cosyvoice_version: int):
+    """
+    Returns:
+      prompt_token (1, Ttok) int32 (on codec_decoder.frontend.device)
+      prompt_feat  (1, Tfeat, 80) float (on codec_decoder.frontend.device)
+      embedding    (1, D) float (on codec_decoder.frontend.device)
+    NOTE: keep wav16k on CPU for resampling to avoid device mismatch issues.
+    """
+    assert wav16k.device.type == "cpu", "wav16k should stay on CPU to avoid torchaudio Resample device mismatch"
+
+    # token + spk embedding extracted from 16k wav
+    prompt_token, _ = codec_decoder.frontend._extract_speech_token(wav16k)
+    embedding = codec_decoder.frontend._extract_spk_embedding(wav16k)
+
+    # feat needs model SR: v1 uses 22050, v2 uses 24000
+    if cosyvoice_version == 1:
+        prompt_resamp = torchaudio.transforms.Resample(16000, 22050)(wav16k)
+    elif cosyvoice_version == 2:
+        prompt_resamp = torchaudio.transforms.Resample(16000, 24000)(wav16k)
+    else:
+        raise NotImplementedError(f"Unsupported cosyvoice_version={cosyvoice_version}")
+
+    prompt_feat, _ = codec_decoder.frontend._extract_speech_feat(prompt_resamp)
+    return prompt_token, prompt_feat, embedding
+
+
+@torch.no_grad()
+def extract_base_token(codec_decoder, base_wav16k: torch.Tensor, token_max_len: int) -> torch.Tensor:
+    """
+    Extract a fixed speech token sequence used as flow input token to trigger estimator forward.
+    Return shape: (1, Ttok) int32 on codec_decoder.frontend.device.
+    """
+    assert base_wav16k.device.type == "cpu"
+    base_token, _ = codec_decoder.frontend._extract_speech_token(base_wav16k)
+    if token_max_len > 0 and base_token.shape[1] > token_max_len:
+        base_token = base_token[:, :token_max_len]
+    return base_token
+
+
+# -----------------------------
+# Hook collector
+# -----------------------------
+class ActivationCollector:
+    """
+    Collect mean activation vectors per BasicTransformerBlock.
+
+    We try to use block input as activation (preferred for "residual stream" style).
+    If the block is called with kwargs-only (args empty) and we can't access input,
+    we fallback to using output in a forward_hook.
+    """
+
+    def __init__(self, layer_names: List[str], device: torch.device):
+        self.layer_names = layer_names
+        self.device = device
+
+        # accumulators: label -> [num_layers, hidden_dim] sum and count
+        self._sum: Dict[str, torch.Tensor] = {}
+        self._cnt: Dict[str, torch.Tensor] = {}
+
+        self.current_label: Optional[str] = None
+        self.hidden_dim: Optional[int] = None
+
+    def begin_label(self, label: str):
+        self.current_label = label
+        if label not in self._sum:
+            # hidden_dim unknown until first hook fires; init later
+            self._sum[label] = None
+            self._cnt[label] = None
+
+    def end_label(self):
+        self.current_label = None
+
+    def _init_label_buffers(self, label: str, hidden_dim: int):
+        num_layers = len(self.layer_names)
+        self._sum[label] = torch.zeros(num_layers, hidden_dim, device="cpu", dtype=torch.float32)
+        self._cnt[label] = torch.zeros(num_layers, device="cpu", dtype=torch.long)
+
+    def _reduce_to_vec(self, x: torch.Tensor) -> Optional[torch.Tensor]:
+        """
+        Convert activation tensor x to a 1D vector [hidden_dim] by averaging batch/time dims.
+        Supports shapes:
+          [B, T, C]  -> mean over (0,1)
+          [B, C, T]  -> mean over (0,2)
+          [B, C]     -> mean over 0
+        """
+        if not torch.is_tensor(x):
+            return None
+        if x.numel() == 0:
+            return None
+
+        # detach, float32 on CPU to accumulate stably
+        x = x.detach()
+
+        if x.dim() == 3:
+            # decide which dim is hidden
+            # common cases: [B,T,C] or [B,C,T]
+            if x.shape[-1] <= 4096 and x.shape[-1] >= 32:
+                # assume last dim is hidden
+                v = x.float().mean(dim=(0, 1))  # [C]
+            elif x.shape[1] <= 4096 and x.shape[1] >= 32:
+                # assume middle dim is hidden
+                v = x.float().mean(dim=(0, 2))  # [C]
+            else:
+                # fallback: flatten last dim
+                v = x.reshape(-1).float()
+        elif x.dim() == 2:
+            v = x.float().mean(dim=0)
+        elif x.dim() == 1:
+            v = x.float()
+        else:
+            v = x.reshape(-1).float()
+
+        return v.cpu()
+
+    def add(self, layer_idx: int, x: torch.Tensor):
+        label = self.current_label
+        if label is None:
+            return
+        v = self._reduce_to_vec(x)
+        if v is None:
+            return
+
+        if self.hidden_dim is None:
+            self.hidden_dim = int(v.numel())
+
+        if self._sum[label] is None:
+            self._init_label_buffers(label, self.hidden_dim)
+
+        # if hidden_dim changes unexpectedly, skip
+        if v.numel() != self._sum[label].shape[1]:
+            return
+
+        self._sum[label][layer_idx] += v
+        self._cnt[label][layer_idx] += 1
+
+    def get_mean(self, label: str) -> torch.Tensor:
+        if label not in self._sum or self._sum[label] is None:
+            raise RuntimeError(f"No activations collected for label={label}")
+        s = self._sum[label]
+        c = self._cnt[label].clamp_min(1).unsqueeze(1).float()
+        return s / c  # [L, D]
+
+    def get_counts(self, label: str) -> torch.Tensor:
+        return self._cnt[label].clone() if label in self._cnt and self._cnt[label] is not None else None
+
+
+class HookBundle:
+    def __init__(self):
+        self.handles = []
+
+    def remove(self):
+        for h in self.handles:
+            try:
+                h.remove()
+            except Exception:
+                pass
+        self.handles = []
+
+
+def _supports_with_kwargs(register_fn) -> bool:
+    try:
+        sig = inspect.signature(register_fn)
+        return "with_kwargs" in sig.parameters
+    except Exception:
+        return False
+
+
+def attach_block_hooks(estimator: torch.nn.Module, collector: ActivationCollector) -> Tuple[HookBundle, List[str]]:
+    """
+    Find all BasicTransformerBlock modules under estimator and hook them.
+    Returns: (bundle, layer_names)
+    """
+    blocks: List[Tuple[str, torch.nn.Module]] = []
+    for name, m in estimator.named_modules():
+        if m.__class__.__name__ == "BasicTransformerBlock":
+            blocks.append((name, m))
+
+    if len(blocks) == 0:
+        raise RuntimeError("No BasicTransformerBlock found under estimator. Check your estimator architecture.")
+
+    layer_names = [n for n, _ in blocks]
+    collector.layer_names[:] = layer_names  # update in-place
+
+    bundle = HookBundle()
+
+    # Prefer forward_pre_hook to capture input, but handle kwargs-only calls safely.
+    for layer_idx, (name, blk) in enumerate(blocks):
+
+        def make_pre_hook(idx: int):
+            def pre_hook(module, args, kwargs=None):
+                # kwargs may be None depending on torch version/hook type
+                x = None
+                if args is not None and len(args) > 0:
+                    x = args[0]
+                else:
+                    if kwargs:
+                        # diffusers BasicTransformerBlock often uses "hidden_states"
+                        if "hidden_states" in kwargs:
+                            x = kwargs["hidden_states"]
+                        elif "x" in kwargs:
+                            x = kwargs["x"]
+                if x is None:
+                    return
+                collector.add(idx, x)
+            return pre_hook
+
+        # If torch supports with_kwargs=True, use it (fixes your args-empty crash).
+        if _supports_with_kwargs(blk.register_forward_pre_hook):
+            h = blk.register_forward_pre_hook(make_pre_hook(layer_idx), with_kwargs=True)
+            bundle.handles.append(h)
+        else:
+            # fallback: forward_hook (input may still be empty, but output exists)
+            def make_fwd_hook(idx: int):
+                def fwd_hook(module, args, out):
+                    x = None
+                    if args is not None and len(args) > 0:
+                        x = args[0]
+                    else:
+                        x = out
+                    if x is None:
+                        return
+                    collector.add(idx, x)
+                return fwd_hook
+
+            h = blk.register_forward_hook(make_fwd_hook(layer_idx))
+            bundle.handles.append(h)
+
+    return bundle, layer_names
+
+
+# -----------------------------
+# Call flow.inference to trigger estimator
+# -----------------------------
+@torch.no_grad()
+def call_flow_inference(flow, token, prompt_token, prompt_feat, embedding):
+    """
+    Calls flow.inference with correct kwargs based on signature (v1/v2 differences).
+    """
+    device = next(flow.parameters()).device
+    token = token.to(device)
+    prompt_token = prompt_token.to(device)
+    prompt_feat = prompt_feat.to(device)
+    embedding = embedding.to(device)
+
+    kwargs = dict(
+        token=token,
+        token_len=torch.tensor([token.shape[1]], dtype=torch.int32, device=device),
+        prompt_token=prompt_token,
+        prompt_token_len=torch.tensor([prompt_token.shape[1]], dtype=torch.int32, device=device),
+        prompt_feat=prompt_feat,
+        prompt_feat_len=torch.tensor([prompt_feat.shape[1]], dtype=torch.int32, device=device),
+        embedding=embedding,
+    )
+
+    sig = inspect.signature(flow.inference)
+    if "flow_cache" in sig.parameters:
+        kwargs["flow_cache"] = torch.zeros(1, 80, 0, 2, device=device)
+    if "finalize" in sig.parameters:
+        kwargs["finalize"] = True
+
+    _ = flow.inference(**kwargs)
+
+
+# -----------------------------
+# Main
+# -----------------------------
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--codec_decoder_path", type=str, required=True,
+                        help="CosyVoice/CosyVoice2 model dir or modelscope repo id (same as your model_config.codec_decoder_path)")
+    parser.add_argument("--cosyvoice_version", type=int, default=1, choices=[1, 2])
+    parser.add_argument("--prompt_lists_json", type=str, required=True,
+                        help="JSON dict emotion->list[wav] (must include 'neutral'). Each list item can be wav path.")
+    parser.add_argument("--out_path", type=str, default="steering_activations.pt")
+    parser.add_argument("--base_token_wav", type=str, default="",
+                        help="A 16k wav used to extract base speech tokens. If empty, use the first neutral wav.")
+    parser.add_argument("--token_max_len", type=int, default=200,
+                        help="Max token length for base token sequence (reduce compute).")
+    parser.add_argument("--max_refs_per_emotion", type=int, default=10,
+                        help="Randomly subsample each emotion list to this size (<=0 means use all).")
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--device", type=str, default="cuda:2")
+
+    args = parser.parse_args()
+
+    random.seed(args.seed)
+    torch.manual_seed(args.seed)
+
+    # --- Load codec decoder using your existing helper (keeps behavior consistent with EmoVoice code) ---
+    # NOTE: we import inside main so it works when run from examples/tts.
+    from tts_config import TrainConfig, ModelConfig
+    from utils.codec_utils import setup_codec
+
+    train_config = TrainConfig()
+    train_config.enable_ddp = False
+    train_config.enable_fsdp = False
+
+    model_config = ModelConfig()
+    model_config.codec_decoder_path = args.codec_decoder_path
+    model_config.codec_decoder_type = "CosyVoice"
+    model_config.cosyvoice_version = int(args.cosyvoice_version)
+
+    codec_decoder = setup_codec(train_config, model_config)
+
+    # --- Resolve estimator & flow ---
+    estimator = codec_decoder.model.flow.decoder.estimator
+    flow = codec_decoder.model.flow
+
+    # --- Load prompt lists ---
+    prompt_map = load_prompt_map(args.prompt_lists_json)
+    if "neutral" not in prompt_map:
+        raise ValueError("prompt_lists_json must contain key 'neutral'")
+
+    # subsample
+    for k in list(prompt_map.keys()):
+        prompt_map[k] = maybe_truncate_list(prompt_map[k], args.max_refs_per_emotion, args.seed + hash(k) % 10000)
+
+    # pick base token wav
+    if args.base_token_wav:
+        base_wav_path = args.base_token_wav
+    else:
+        if len(prompt_map["neutral"]) == 0:
+            raise ValueError("neutral list is empty, cannot auto-pick base_token_wav")
+        base_wav_path = prompt_map["neutral"][0]
+
+    ensure_exists(base_wav_path)
+
+    # load wavs with CosyVoice load_wav (keeps amplitude conventions)
+    from utils.cosyvoice.utils.file_utils import load_wav
+
+    base_wav16k = load_wav(base_wav_path, 16000)  # CPU tensor
+    base_token = extract_base_token(codec_decoder, base_wav16k, token_max_len=args.token_max_len)
+
+    # --- Attach hooks ---
+    collector = ActivationCollector(layer_names=[], device=torch.device(args.device))
+    hook_bundle, layer_names = attach_block_hooks(estimator, collector)
+
+    # --- Run collection ---
+    def run_label(label: str, wav_list: List[str]):
+        collector.begin_label(label)
+        for p in wav_list:
+            ensure_exists(p)
+            wav16k = load_wav(p, 16000)  # keep on CPU (important)
+            ptok, pfeat, emb = extract_prompt_condition(codec_decoder, wav16k, args.cosyvoice_version)
+            call_flow_inference(flow, base_token, ptok, pfeat, emb)
+        collector.end_label()
+
+    # neutral first
+    run_label("neutral", prompt_map["neutral"])
+
+    # other emotions
+    emotions = [k for k in prompt_map.keys() if k != "neutral"]
+    for emo in emotions:
+        run_label(emo, prompt_map[emo])
+
+    # --- Compute directions ---
+    neutral_mean = collector.get_mean("neutral")  # [L, D]
+    results = {
+        "meta": {
+            "cosyvoice_version": int(args.cosyvoice_version),
+            "codec_decoder_path": args.codec_decoder_path,
+            "base_token_wav": base_wav_path,
+            "token_max_len": int(args.token_max_len),
+            "max_refs_per_emotion": int(args.max_refs_per_emotion),
+            "seed": int(args.seed),
+        },
+        "layer_names": layer_names,
+        "neutral_mean": neutral_mean,  # [L, D]
+        "counts": {
+            "neutral": collector.get_counts("neutral"),
+        },
+        "emotion_mean": {},
+        "steer_vec": {},
+        "steer_dir": {},
+    }
+
+    for emo in emotions:
+        m = collector.get_mean(emo)  # [L, D]
+        results["emotion_mean"][emo] = m
+        results["counts"][emo] = collector.get_counts(emo)
+
+        u = m - neutral_mean  # difference-in-means
+        results["steer_vec"][emo] = u
+
+        # normalize per-layer (unit direction)
+        denom = torch.norm(u, dim=1, keepdim=True).clamp_min(1e-8)
+        results["steer_dir"][emo] = u / denom
+
+    os.makedirs(os.path.dirname(args.out_path) or ".", exist_ok=True)
+    torch.save(results, args.out_path)
+    hook_bundle.remove()
+
+    print(f"[OK] Saved steering activations to: {args.out_path}")
+    print(f"     layers: {len(layer_names)} | hidden_dim: {neutral_mean.shape[1]}")
+    print(f"     emotions: {emotions}")
+
+
+if __name__ == "__main__":
+    main()
+
+推理中用到的代码如下：
+with emosteer_context(codec_decoder, decode_config, device=audio_tokens.device):
+    # Convert tokens to audio waveform
+    if model_config.cosyvoice_version==1:
+        audio_hat = codec_decoder.model.token2wav(
+            token=audio_tokens,
+            prompt_token=flow_prompt_speech_token,
+            prompt_feat=prompt_speech_feat,
+            embedding=flow_embedding,
+            uuid=this_uuid,
+            finalize=True,
+            speed=speed
+        )
+
+emosteer_context函数所在的文件如下：
+# examples/tts/utils/emosteer_utils.py
+import torch
+from contextlib import contextmanager
+
+def load_steering(path, device):
+    """
+    兼容：
+    1) torch.save(tensor)
+    2) torch.save({"steering_activations": tensor})
+    3) 你 build 出来的 dict（含 steer_dir/steer_vec 等）
+    """
+    obj = torch.load(path, map_location="cpu")
+
+    if isinstance(obj, dict):
+        if "steering_activations" in obj and isinstance(obj["steering_activations"], torch.Tensor):
+            obj = obj["steering_activations"]
+        elif "steer_dir" in obj and isinstance(obj["steer_dir"], torch.Tensor):
+            obj = obj["steer_dir"]
+        elif "steer_vec" in obj and isinstance(obj["steer_vec"], torch.Tensor):
+            obj = obj["steer_vec"]
+        else:
+            raise ValueError(f"steering file is dict but no usable tensor key found. keys={list(obj.keys())}")
+
+    if not isinstance(obj, torch.Tensor):
+        raise ValueError("steering_path must load a Tensor or a dict containing a Tensor.")
+    return obj.to(device)
+
+def list_transformer_blocks(codec_decoder):
+    """
+    只取 flow.decoder.estimator 内部的 BasicTransformerBlock。
+    你打印的 estimator 结构中，BasicTransformerBlock 总数应为 64。
+    """
+    est = codec_decoder.model.flow.decoder.estimator
+    # print("codec_decoder:\n", codec_decoder) # <cosyvoice.cli.cosyvoice.CosyVoice object at 0x14edd858e980>
+    # print("codec_decoder.model:\n", codec_decoder.model) # <cosyvoice.cli.model.CosyVoiceModel object at 0x14ed85a8ece0>
+    # print("codec_decoder.model.flow:\n", codec_decoder.model.flow) # MaskedDiffWithXvec()
+    # print("codec_decoder.model.flow.decoder:\n", codec_decoder.model.flow.decoder) # ConditionalCFM()
+    # print("codec_decoder.model.flow.decoder.estimator:\n", codec_decoder.model.flow.decoder.estimator) # ConditionalDecoder()
+    blocks = []
+    for name, m in est.named_modules():
+        if m.__class__.__name__ == "BasicTransformerBlock":
+            blocks.append((name, m))
+    return est, blocks
+
+def _get_hidden_states(args, kwargs):
+    # positional
+    if args and isinstance(args[0], torch.Tensor):
+        return args[0], "args"
+    # kwargs: hidden_states=...
+    if "hidden_states" in kwargs and isinstance(kwargs["hidden_states"], torch.Tensor):
+        return kwargs["hidden_states"], "kwargs_hidden_states"
+    # fallback
+    if "x" in kwargs and isinstance(kwargs["x"], torch.Tensor):
+        return kwargs["x"], "kwargs_x"
+    return None, None
+
+def _set_hidden_states(args, kwargs, x_new, where):
+    if where == "args":
+        new_args = (x_new,) + tuple(args[1:])
+        return new_args, kwargs
+    kwargs = dict(kwargs)
+    if where == "kwargs_hidden_states":
+        kwargs["hidden_states"] = x_new
+        return args, kwargs
+    if where == "kwargs_x":
+        kwargs["x"] = x_new
+        return args, kwargs
+    return args, kwargs
+
+def make_steering_hook(block_idx, em_cfg, steering_acts, debug_name=""):
+    alpha = float(getattr(em_cfg, "steering_strength", 0.0))
+    beta  = float(getattr(em_cfg, "erasing_strength", 0.0))
+
+    def hook(module, args, kwargs):
+        # 两个都为 0 就不改
+        if alpha == 0.0 and beta == 0.0:
+            return (args, kwargs)
+
+        x, where = _get_hidden_states(args, kwargs)
+        if x is None or x.dim() != 3:
+            return (args, kwargs)
+
+        B, L, C = x.shape
+
+        # 你的 steering_acts = [64, 256]（每个 block 一个向量）
+        if steering_acts.dim() == 2:
+            if block_idx >= steering_acts.size(0):
+                return (args, kwargs)
+            v = steering_acts[block_idx]  # [C]
+            if v.numel() != C:
+                return (args, kwargs)
+            v = v.to(device=x.device, dtype=x.dtype).view(1, 1, C).expand(B, L, C)
+        else:
+            # 你当前不是 step-wise steering，就先不支持 3D，避免误用导致噪音
+            return (args, kwargs)
+
+        # 单位化方向
+        eps = 1e-6
+        with torch.no_grad():
+            x_norm = torch.norm(x, dim=-1, keepdim=True).clamp_min(eps)
+            x_unit = x / x_norm
+
+            v_norm = torch.norm(v, dim=-1, keepdim=True).clamp_min(eps)
+            v_unit = v / v_norm
+
+            x_new = x_unit
+
+            # 1) 情感增强：x_unit + alpha * v_unit
+            if alpha != 0.0:
+                x_new = x_new + alpha * v_unit
+
+            # 2) 情感“擦除”：去掉在 v_unit 方向上的投影（更稳定、比直接减向量不容易炸）
+            #    x_new = x_new - beta * proj_{v}(x_new)
+            if beta != 0.0:
+                proj = (x_new * v_unit).sum(dim=-1, keepdim=True) * v_unit
+                x_new = x_new - beta * proj
+
+            # 归一回原来的 token-norm，保持幅度不乱飞
+            x_new = x_new / torch.norm(x_new, dim=-1, keepdim=True).clamp_min(eps)
+            x_new = x_new * x_norm
+
+        if getattr(em_cfg, "debug", False):
+            delta = float((x_new - x).abs().mean().item())
+            print(f"[EmoSteer] block={block_idx} name={debug_name} alpha={alpha} beta={beta} mean|Δ|={delta:.6e}")
+
+        return _set_hidden_states(args, kwargs, x_new, where)
+
+    return hook
+
+@contextmanager
+def emosteer_context(codec_decoder, decode_cfg, device):
+    em = getattr(decode_cfg, "emosteer", None) if decode_cfg is not None else None
+    if em is None or (not bool(getattr(em, "enable", False))):
+        yield
+        return
+
+    if not getattr(em, "steering_path", None):
+        raise ValueError("decode_config.emosteer.enable=true but steering_path is None")
+
+    steering_acts = load_steering(em.steering_path, device=device)
+
+    _, blocks = list_transformer_blocks(codec_decoder)
+    if len(blocks) == 0:
+        raise RuntimeError("No BasicTransformerBlock found under flow.decoder.estimator.")
+
+    if steering_acts.dim() == 2 and steering_acts.size(0) != len(blocks):
+        print(f"[EmoSteer][WARN] steering acts first dim={steering_acts.size(0)} != num_blocks={len(blocks)}.")
+
+    handles = []
+    try:
+        target = set(em.layers) if getattr(em, "layers", None) is not None else None
+        for idx, (name, m) in enumerate(blocks):
+            if target is not None and idx not in target:
+                continue
+            h = m.register_forward_pre_hook(
+                make_steering_hook(idx, em, steering_acts, debug_name=name),
+                with_kwargs=True,   # 关键：你这里 transformer_block 用的是 hidden_states=...（kwargs）
+            )
+            handles.append(h)
+        yield
+    finally:
+        for h in handles:
+            h.remove()

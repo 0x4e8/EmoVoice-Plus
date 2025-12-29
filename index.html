@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<meta name="generator" content="Hugo 0.88.1" />
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="https://fonts.googleapis.com/css?family=Roboto:300,400,700" rel="stylesheet" type="text/css">
+	<link rel="stylesheet" href=""https://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.4/styles/github.min.css">
+	<link rel="stylesheet" href="css/custom.css">
+	<link rel="stylesheet" href="css/normalize.css">
+
+	<title>EmoVoice</title>
+	<link href="css/bootstrap.min.css" rel="stylesheet">
+
+</head>
+
+
+<body data-new-gr-c-s-check-loaded="14.1091.0" data-gr-ext-installed="">
+
+<div class="container" >
+<header role="banner">
+</header>
+<main role="main">
+<article itemscope itemtype="https://schema.org/BlogPosting">
+
+<div class="container pt-5 mt-5 shadow-lg p-5 mb-5 bg-white rounded">
+	<div class="text-center">
+	<h2 style="display: flex; align-items: center; justify-content: center">
+		EmoVoice: <span style="margin-left: 10px;"></span> 
+	</h2>
+      <h3>LLM-based Emotional Text-To-Speech Model with Freestyle Text Prompting</h3>
+	  <h5><a href="https://arxiv.org/abs/2504.12867" target="_blank" rel="noopener noreferrer">Paper</a>; <a href="https://github.com/yanghaha0908/EmoVoice" target="_blank" rel="noopener noreferrer">Code</a>; <a href="https://huggingface.co/datasets/yhaha/EmoVoice-DB" target="_blank" rel="noopener noreferrer">Dataset</a></h5>
+	</div>
+	<p><b>Abstract</b> Human speech goes beyond the mere transfer of information; it is a profound exchange of emotions and a connection between individuals. While Text-to-Speech (TTS) models have made huge progress, they still face challenges in controlling the emotional expression in the generated speech. In this work, we propose EmoVoice, a novel emotion-controllable TTS model that exploits large language models (LLMs) to enable fine-grained freestyle natural language emotion control, and a phoneme boost variant design that makes the model output phoneme tokens and audio tokens in parallel to enhance content consistency, inspired by chain-of-thought (CoT) and chain-of-modality (CoM) techniques. Besides, we introduce EmoVoice-DB, a high-quality 40-hour English emotion dataset featuring expressive speech and fine-grained emotion labels with natural language descriptions. EmoVoice achieves state-of-the-art performance on the English EmoVoice-DB test set using only synthetic training data, and on the Chinese Secap test set using our in-house data. We further investigate the reliability of existing emotion evaluation metrics and their alignment with human perceptual preferences, and explore using SOTA multimodal LLMs GPT-4o-audio and Gemini to assess emotional speech. Demo samples are available at <a href="https://yanghaha0908.github.io/EmoVoice/">https://yanghaha0908.github.io/EmoVoice/</a>. Dataset, code, and checkpoints will be released.
+	</p>
+
+	<p>
+	<b>Contents</b>
+      <ul>
+        <li><a href="#model-overview">Model Overview</a></li>
+        <li><a href="#English-Samples">English Samples</a></li>
+        <li><a href="#Chinese-Samples">Chinese Samples</a></li>
+		<li><a href="#samesen">Same Text, Different Emotions</a></li>
+      </ul>
+	</p>
+
+	<p><b>This page is for research demonstration purposes only.</b></p>
+
+	
+</div>
+
+
+<div class="container pt-5 mt-5 shadow-lg p-5 mb-5 bg-white rounded">		
+	<h2 id="model-overview" style="text-align: center;">Model Overview</h2>
+	<body>
+	<p style="text-align: center;">
+		<img src="pics/emovoice_overview.png" class="img-fluid w-75">
+	</p>
+	</body>
+	<p style="text-align: left;" >
+		<b>Figure 1</b>: Overview of EmoVoice. LLM receives emotion description and text, autoregressively generating audio token group and phoneme token(optional) in parallel. Audio tokens are converted to waveforms by Vocoder. Input at each decoding step is average embedding of audio token group and phoneme token(optional).
+	</p>
+</div>
+
+
+<div class="container pt-5 mt-5 shadow-lg p-5 mb-5 bg-white rounded">
+	<h2 id="English-Samples" style="text-align: center;">English emotion-controllable TTS</h2>
+		<div class="table-responsive pt-3">
+			<table class="table table-hover pt-2">
+				<thead>
+				<tr>
+				<th style="vertical-align : middle;text-align: center">Emotion </th>
+				<th style="vertical-align : middle;text-align: center">Emotion Description</th>
+				<th style="vertical-align : middle;text-align: center">Text</th>
+				<th style="vertical-align : middle;text-align: center">Audio</th>
+				</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="5">Angry</td>
+						<td style="vertical-align : middle;text-align:center;">Reflecting an exasperated, weary annoyance underlined with impatience</td>
+						<td style="vertical-align : middle;text-align:center;">How many times must I repeat myself before you LISTEN?</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/angry/gpt4o_16726_angry_ballad.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Revealing a simmering rage through a tense, irritable growl punctuating each word.</td>
+						<td style="vertical-align : middle;text-align:center;">The dog's incessant barking grated on her nerves, like nails on a chalkboard.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/angry/gpt4o_7282_angry_ash.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>				
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Unveiling an undercurrent of anger masked by an eerie calm, crescendoing in clipped intensity.</td>
+						<td style="vertical-align : middle;text-align:center;">Crimson clouds knitted together, a glowering expanse of UNRELENTING fury.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/angry/gpt4o_7566_angry_ballad.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Conveying a scornful, incredulous anger mixed with urgency.</td>
+						<td style="vertical-align : middle;text-align:center;">Is this a JOKE to you? Take it seriously!</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/angry/gpt4o_17195_angry_sage.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Revealing a deep-seated resentment and a sense of injustice.</td>
+						<td style="vertical-align : middle;text-align:center;">“Why do I always have to fix YOUR messes?” he spat.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/angry/gpt4o_16375_angry_ash.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>	
+		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="5">Sad</td>
+						<td style="vertical-align : middle;text-align:center;">Conveying desperation through a quivering voice and hitching breath.</td>
+						<td style="vertical-align : middle;text-align:center;">I know I messed up, but please don't leave—please.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/sad/gpt4o_9543_sad_verse.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Illustrating a deep-seated despondency that saps strength and hope.</td>
+						<td style="vertical-align : middle;text-align:center;">He sat in the corner, head in hands, the picture of forlorn weariness.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/sad/gpt4o_9668_sad_verse.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>				
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Conveying an undercurrent of sadness masked by a seemingly serene demeanor.</td>
+						<td style="vertical-align : middle;text-align:center;">Her eyes were stormy seas, turbulence hidden beneath a mask of calm.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/sad/gpt4o_18927_sad_ash.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Projecting a faint, delicate melancholy colored with distant happiness past.</td>
+						<td style="vertical-align : middle;text-align:center;">The park used to be full of laughter—now just whispers on the breeze.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/sad/gpt4o_9634_sad_verse.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Communicating a deep emotional void, weighted by silence's sharp edge.</td>
+						<td style="vertical-align : middle;text-align:center;">She said nothing, yet the unsaid screamed into the lingering night.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/sad/gpt4o_9895_sad_ash.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>	
+
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="5">Happy</td>
+						<td style="vertical-align : middle;text-align:center;">A spontaneous, shared moment of wonder and joy at nature's beauty.</td>
+						<td style="vertical-align : middle;text-align:center;">LOOK at that rainbow! It's breathtaking and perfectly magical.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/happy/gpt4o_1525_happy_ash.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Uninhibited joy and freedom found in spontaneous, playful moments.</td>
+						<td style="vertical-align : middle;text-align:center;">Running through the rain, she felt a childlike elation in every drop.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/happy/gpt4o_1950_happy_sage.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>				
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Effusing genuine warmth that resonates with a bubbly enthusiasm.</td>
+						<td style="vertical-align : middle;text-align:center;">If this doesn't bring a smile to MY face, nothing will—and it absolutely DID!</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/happy/gpt4o_8863_happy_ballad.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Voicing genuine enthusiasm and admiration with vibrant intonation.</td>
+						<td style="vertical-align : middle;text-align:center;">You DID it! The painting is breathtaking, capturing sunlight on waves perfectly.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/happy/gpt4o_17284_happy_verse.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Reflecting a thrilling sense of accomplishment with upbeat vocal inflections.</td>
+						<td style="vertical-align : middle;text-align:center;">We did it—completely aced the project and they loved our ideas!</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/happy/gpt4o_8273_happy_verse.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>	
+					
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="5">Disgusted</td>
+						<td style="vertical-align : middle;text-align:center;">Emanating a strong sense of disgust and repulsion in the vocal tone.</td>
+						<td style="vertical-align : middle;text-align:center;">The slime oozed from the drain, leaving a slick, abhorrent path.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/disgusted/gpt4o_21471_disgusted_ash.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Describing something with a clear sense of revulsion and unease.</td>
+						<td style="vertical-align : middle;text-align:center;">The sight was grotesque, a twisted parody of what it should be.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/disgusted/gpt4o_21172_disgusted_verse.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>				
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Detailing a revolting invasion that triggers internal repulsion.</td>
+						<td style="vertical-align : middle;text-align:center;">The bathroom corner hosted a festering colony of insects, revolting and grotesque.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/disgusted/gpt4o_4314_disgusted_ash.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Voicing an intense and lingering disgust, every word dipped in aversion.</td>
+						<td style="vertical-align : middle;text-align:center;">Chewing with her mouth open, the sight was unbearably REVOLTING.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/disgusted/gpt4o_12984_disgusted_sage.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Depicting a tangible, sensory revulsion to the idea of messiness.</td>
+						<td style="vertical-align : middle;text-align:center;">The thought of touching that sticky, syrupy mess makes my fingers curl.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/disgusted/gpt4o_21358_disgusted_verse.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>	
+
+
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="5">Fearful</td>
+						<td style="vertical-align : middle;text-align:center;">Expressing a high-pitched, tremulous voice betraying unfiltered anxiety.</td>
+						<td style="vertical-align : middle;text-align:center;">I heard something! Was it just the cat again?</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/fearful/gpt4o_5181_fearful_verse.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Eliciting an anxiety-laden atmosphere heightened by soft, sharp tones.</td>
+						<td style="vertical-align : middle;text-align:center;">Branches SCRAPED the windows, claws against the glass echoing in the silence.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/fearful/gpt4o_5286_fearful_ash.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>				
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Revealing rising hysteria through a trembling staccato rhythm in speech.</td>
+						<td style="vertical-align : middle;text-align:center;">Why is the power out AGAIN? I saw something—swear to god—just over there in the dark!</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/fearful/gpt4o_13867_fearful_ballad.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Projecting a suffocating unease through fragmented, quaky vocal delivery.</td>
+						<td style="vertical-align : middle;text-align:center;">Every step forward felt heavier, the oppressive silence practically wrapping around her throat.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/fearful/gpt4o_13868_fearful_ballad.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Fostering a sense of escalating panic and unease.</td>
+						<td style="vertical-align : middle;text-align:center;">I can hear the footsteps closing in, getting closer and CLOSER.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/fearful/gpt4o_23326_fearful_sage.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>	
+
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="5">Surprised</td>
+						<td style="vertical-align : middle;text-align:center;">Embodying an enchanted surprise, akin to discovering a romantic secret admirer.</td>
+						<td style="vertical-align : middle;text-align:center;">On my doorstep, a bouquet of roses rested with no note or hint—such mystery!</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/surprised/gpt4o_3866_surprised_sage.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Generating a sense of awed incredulity, ridden with escalating, breathless vocal surprise.</td>
+						<td style="vertical-align : middle;text-align:center;">The sky burst open with green light, unearthly and impossible, bathing the mountains in otherworldly hues.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/surprised/gpt4o_11122_surprised_ash.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>				
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Portraying a sense of sudden self-discovery with astonished delight.</td>
+						<td style="vertical-align : middle;text-align:center;">Upon trying her hand at painting, she discovered a natural talent within her.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/surprised/gpt4o_11994_surprised_sage.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Highlighting awe with a staccato rhythm and lingering stress on key words.</td>
+						<td style="vertical-align : middle;text-align:center;">That cloud just spelled my NAME—how could anyone explain something like THAT?</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/surprised/gpt4o_10959_surprised_verse.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Expressing disbelief and surprise at an improbable event.</td>
+						<td style="vertical-align : middle;text-align:center;">Are you telling me she actually won the LOTTERY?</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/surprised/gpt4o_3227_surprised_verse.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>	
+
+
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="5">Neutral</td>
+						<td style="vertical-align : middle;text-align:center;">Invoking a sense of steady pace, voice unchanging and composed.</td>
+						<td style="vertical-align : middle;text-align:center;">The fountain burbles endlessly, casting rhythmic waves across the pond's surface.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/neutral/gpt4o_14951_neutral_ash.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Evoking a neutral consistency through the habitual sounds of the city.</td>
+						<td style="vertical-align : middle;text-align:center;">Car horns beeped in the distance—a regular pattern of city life.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/neutral/gpt4o_15155_neutral_ballad.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>				
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Observing the transition in time with an impartial and measured tone.</td>
+						<td style="vertical-align : middle;text-align:center;">Shadows stretched long across the field as the day wound to its close.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/neutral/gpt4o_15298_neutral_coral.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Maintaining an even, steady tone without discernible changes in intensity or emotion.</td>
+						<td style="vertical-align : middle;text-align:center;">Dust motes drift aimlessly, suspended in the golden sunlight streaming through the open window.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/neutral/gpt4o_15540_neutral_sage.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>	
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Narrating routine, rhythmic footsteps without emotional hue.</td>
+						<td style="vertical-align : middle;text-align:center;">The hallway echoed with footsteps, a rhythm of daily life.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/neutral/gpt4o_14699_neutral_verse.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+
+				</tbody>
+			</table>
+		</div>
+</div>
+<div class="container pt-5 mt-5 shadow-lg p-5 mb-5 bg-white rounded">
+	<h2 id="Chinese-Samples" style="text-align: center;">Chinese emotion-controllable TTS</h2>
+		<div class="table-responsive pt-3">
+			<table class="table table-hover pt-2">
+				<thead>
+				<tr>
+				<th style="vertical-align : middle;text-align: center">Emotion </th>
+				<th style="vertical-align : middle;text-align: center">Emotion Description </th>
+				<th style="vertical-align : middle;text-align: center">Text</th>
+				<th style="vertical-align : middle;text-align: center">Audio</th>
+				</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="5">开心</td>
+						<td style="vertical-align : middle;text-align:center;">言语间的喜悦和开心很明显</td>
+						<td style="vertical-align : middle;text-align:center;">去豆捞坊每次都是愉快的餐饮体验啊!</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/happy/tx_emotion_00203000066.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">言语中尽是喜悦欢喜之意</td>
+						<td style="vertical-align : middle;text-align:center;">京东六幺八买东西真的好便宜呀,促销结束立刻恢复原价,赚到啦!</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/happy/tx_emotion_00203000128.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>				
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">想起过去的温馨场面，心里很是温暖，开心</td>
+						<td style="vertical-align : middle;text-align:center;">我的伙伴,童年的快乐,回想起来依然温暖。 </td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/happy/tx_emotion_00203000095.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">语调间掩饰不住的开心快乐的喜悦</td>
+						<td style="vertical-align : middle;text-align:center;">希研祝你们玩儿得开心哦。 </td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/happy/tx_emotion_00203000065.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">某个节日的到来，倍感开心和欢喜</td>
+						<td style="vertical-align : middle;text-align:center;">看,国庆到了,妹妹也开心! </td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/happy/tx_emotion_00203000050.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>	
+
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="5">生气</td>
+						<td style="vertical-align : middle;text-align:center;">怒火重重，满是气愤</td>
+						<td style="vertical-align : middle;text-align:center;">你们麒麟帮简直找死! </td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/angry/tx_emotion_00205000062.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">嫉妒，不满，生出怨恨情绪。</td>
+						<td style="vertical-align : middle;text-align:center;">你说谁不要脸呐?你才不要脸呐!</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/angry/tx_emotion_00202000425.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>				
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">教育别人，充满坚定的语气，还带有愤怒</td>
+						<td style="vertical-align : middle;text-align:center;">受到处罚你可不能怨别人,知道吗,臭小子! </td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/angry/tx_emotion_00202000395.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">发泄积在心中的委屈和气愤</td>
+						<td style="vertical-align : middle;text-align:center;">你脑子坏了,人妖,还不是你先踩我。</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/angry/tx_emotion_00202000118.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">心里生气，不爽</td>
+						<td style="vertical-align : middle;text-align:center;">昨天晚上的气还没消呢,你少招惹我。 </td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/angry/tx_emotion_00204000391.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>	
+		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="5">激动</td>
+						<td style="vertical-align : middle;text-align:center;">急切，激动，表示立场分明。</td>
+						<td style="vertical-align : middle;text-align:center;">那是因为以前他需要你的支持,所以对你特别好。我哥他坏透了! </td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/excited/tx_emotion_00202000436.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">语气激动，语调忿忿不平</td>
+						<td style="vertical-align : middle;text-align:center;">你瞎说什么,怎么这么没有礼貌。</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/excited/tx_emotion_00304000235.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>				
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">充满正气，情绪激动</td>
+						<td style="vertical-align : middle;text-align:center;">没有谁是非谁不可的,以妍,自己的幸福才是最重要的!</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/excited/tx_emotion_00302000107.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">心中醋意正浓，觉得有被抛弃之感</td>
+						<td style="vertical-align : middle;text-align:center;">米琦,你出来,我有话要跟你说。 </td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/excited/tx_emotion_00204000426.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">情绪激动警惕为保护她而着急。</td>
+						<td style="vertical-align : middle;text-align:center;">是为你好,是在关心你!你也明知道,学校一定会追究这件事儿的</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/excited/tx_emotion_00302000090.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>	
+		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="5">伤心</td>
+						<td style="vertical-align : middle;text-align:center;">怜惜又愤恨，泣不成声，难以控制情绪。</td>
+						<td style="vertical-align : middle;text-align:center;">在我改变主意之前,在我眼前消失。</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/cry/tx_emotion_00202000301.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">声音断断续续，口齿不清，难过得哭泣，充满怜悯之心</td>
+						<td style="vertical-align : middle;text-align:center;">你…算啦,麻烦你还是去看看有什么可以避雨的地方。 </td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/cry/tx_emotion_00210000049.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">内心内疚，泣不成声，情绪无法控制</td>
+						<td style="vertical-align : middle;text-align:center;">可是,我们就在同一天之内,少了本校的黄金校草和白金校花。</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/cry/tx_emotion_00207000162.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">悲哀痛苦，悲伤难过</td>
+						<td style="vertical-align : middle;text-align:center;">当他死于绞刑架上的时候,比约特再也控制不住自己的悲伤。</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/cry/tx_emotion_00301000052.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>	
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">伤心不已，悲伤凄凉</td>
+						<td style="vertical-align : middle;text-align:center;">他如果真的爱你,你就不会这么难过了。</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/cry/tx_emotion_00201000274.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>	
+
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="5">惊讶</td>
+						<td style="vertical-align : middle;text-align:center;">意外的感觉，感到震撼</td>
+						<td style="vertical-align : middle;text-align:center;">天呐,跟着她快五年啦,居然她就是冰凌儿小姐。</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/surprised/tx_emotion_00409000228.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">语气惊喜，略带兴奋</td>
+						<td style="vertical-align : middle;text-align:center;">啊,我没事儿啊,有事儿的是你的衣服呀。</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/surprised/tx_emotion_00309000349.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>				
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">感到又惊又喜，不可思议</td>
+						<td style="vertical-align : middle;text-align:center;">哇!原来是青梅竹马呀! </td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/surprised/tx_emotion_00309000160.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">内心恍然大悟，突然明白</td>
+						<td style="vertical-align : middle;text-align:center;">原来你一直戴着护腕儿,就是为了掩盖上面的疤痕呀! </td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/surprised/tx_emotion_00309000183.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">目瞪口呆、桥舌不下、惊讶的样子</td>
+						<td style="vertical-align : middle;text-align:center;">居然会为了一个陌生人干出那些傻事。 </td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/surprised/tx_emotion_00209000346.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>	
+
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="3">平静</td>
+						<td style="vertical-align : middle;text-align:center;">形容端正老实，合乎常理</td>
+						<td style="vertical-align : middle;text-align:center;">您自个儿算一下,怎么样合算些? </td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/calm/tx_emotion_00400000196.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">语气平和，语调平静</td>
+						<td style="vertical-align : middle;text-align:center;">经检测,那些白色粉末儿是冰毒。</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/calm/tx_emotion_00400000160.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>				
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">平静的阐述，无情绪</td>
+						<td style="vertical-align : middle;text-align:center;">稚嫩的嗓音在高音区并不声嘶力竭,似乎还显得游刃有余。 </td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/calm/tx_emotion_00400000011.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="5">其他</td>
+						<td style="vertical-align : middle;text-align:center;">傲气十足，对自己有信心</td>
+						<td style="vertical-align : middle;text-align:center;">没门儿!我以后要靠自己买四轮车。</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/other/tx_emotion_00205000265.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">带有佩服的言语</td>
+						<td style="vertical-align : middle;text-align:center;">好兄弟,你太有才啦!全班同学被你编的故事闹得天翻地覆!</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/other/tx_emotion_00409000323.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>				
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">感到疑惑，不知该怎么办</td>
+						<td style="vertical-align : middle;text-align:center;">妈,你在看什么啊?我后面有什么东西吗? </td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/other/tx_emotion_00206000186.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">心生不满，厌恶。</td>
+						<td style="vertical-align : middle;text-align:center;">对,就你是知识分子,你好好去你的麻省理工待着,别来烦我。</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/ZH/other/disgust/tx_emotion_00302000027.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+
+				</tbody>
+			</table>
+		</div>
+</div>
+
+<div class="container pt-5 mt-5 shadow-lg p-5 mb-5 bg-white rounded">
+	<h2 id="samesen" style="text-align: center;">Same Text, Different Emotions</h2>
+		<div class="table-responsive pt-3">
+			<table class="table table-hover pt-2">
+				<thead>
+				<tr>
+				<th style="vertical-align : middle;text-align: center">Text</th>
+				<th style="vertical-align : middle;text-align: center">Emotion </th>
+				<th style="vertical-align : middle;text-align: center">Emotion Description </th>
+				<th style="vertical-align : middle;text-align: center">Audio</th>
+				</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="14">Voice is the most natural way of human-computer interaction.</td>
+						<td style="vertical-align : middle;text-align:center;" rowspan="2">Angry</td>
+						<td style="vertical-align : middle;text-align:center;">Revealing a simmering rage through a tense, irritable growl punctuating each word.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/samesen/gpt4o_7282_angry_ash.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Reflecting an exasperated, weary annoyance underlined with impatience</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/samesen/gpt4o_16726_angry_ballad.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>				
+			
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="2">Sad</td>
+						<td style="vertical-align : middle;text-align:center;">Projecting a faint, delicate melancholy colored with distant happiness past.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/samesen/gpt4o_9634_sad_verse.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Conveying an undercurrent of sadness masked by a seemingly serene demeanor.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/samesen/gpt4o_18927_sad_ash.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="2">Happy</td>
+						<td style="vertical-align : middle;text-align:center;">Uninhibited joy and freedom found in spontaneous, playful moments.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/samesen/gpt4o_1950_happy_sage.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Reflecting a thrilling sense of accomplishment with upbeat vocal inflections.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/samesen/gpt4o_8273_happy_verse.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+	
+
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="2">Disgusted</td>
+						<td style="vertical-align : middle;text-align:center;">Voicing an intense and lingering disgust, every word dipped in aversion.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/samesen/gpt4o_12984_disgusted_sage.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Detailing a revolting invasion that triggers internal repulsion.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/samesen/gpt4o_4314_disgusted_ash.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="2">Fearful</td>
+						<td style="vertical-align : middle;text-align:center;">Revealing rising hysteria through a trembling staccato rhythm in speech.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/samesen/gpt4o_13867_fearful_ballad.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Filling the conversational gaps with an undercurrent of expectant dread, like a held breath.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/samesen/gpt4o_5114_fearful_verse.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="2">Surprised</td>
+						<td style="vertical-align : middle;text-align:center;">Portraying a sense of sudden self-discovery with astonished delight.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/samesen/gpt4o_11994_surprised_sage.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Embodying an enchanted surprise, akin to discovering a romantic secret admirer.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/samesen/gpt4o_3866_surprised_sage.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+
+					<tr>
+						<td style="vertical-align : middle;text-align:center;" rowspan="2">Neutral</td>
+						<td style="vertical-align : middle;text-align:center;">Narrating routine, rhythmic footsteps without emotional hue.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/samesen/gpt4o_14699_neutral_verse.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>
+					<tr>
+						<td style="vertical-align : middle;text-align:center;">Maintaining an even, steady tone without discernible changes in intensity or emotion.</td>
+						<td style="vertical-align : middle;text-align:center;"><audio controls="controls" style="width: 190px;"><source src="audios/EN/samesen/gpt4o_15540_neutral_sage.wav" autoplay/>Your browser does not support the audio element.</audio></td>
+					</tr>		
+
+
+
+				</tbody>
+			</table>
+		</div>
+</div>
+
+
+
+
+</article>
+</main>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,356 @@
+from dataclasses import dataclass, field
+from typing import Optional, List, Dict
+
+# @dataclass
+# class AlignConfig:
+#     enable: bool = False
+#     # 你刚生成的预计算 embedding
+#     style_emb_pt: Optional[str] = None  # e.g. .../EmoVoice-DB/train.style_emb.pt
+#     # 对齐损失权重
+#     loss_weight: float = 0.05
+#     # InfoNCE/CLIP 温度
+#     temperature: float = 0.07
+#     # 投影维度：要和 emotion2vec embedding 维度一致（你的是 1024）
+#     proj_dim: int = 1024
+#     # 是否做 L2 normalize（强烈建议 True）
+#     normalize: bool = True
+#     # DDP 下是否使用全局 negatives（强烈建议 True）
+#     use_global_negatives: bool = True
+#     # 把整张 style emb 表放 GPU（21050×1024 fp32 ~ 86MB/卡，可以）
+#     style_emb_on_gpu: bool = True
+#     # key 缺失时是否报错
+#     strict_key: bool = True
+
+# @dataclass
+# class AlignConfig:
+#     enable: bool = False
+#     style_emb_pt: Optional[str] = None
+
+#     # 旧：固定 temperature（仍作为初始化用）
+#     temperature: float = 0.07
+
+#     # 新：learnable logit_scale（CLIP style）
+#     learnable_logit_scale: bool = True
+#     logit_scale_max: float = 100.0  # CLIP 里提到“clip 到不超过 100”:contentReference[oaicite:2]{index=2}
+
+#     loss_weight: float = 0.05
+#     proj_dim: int = 1024
+#     normalize: bool = True
+#     use_global_negatives: bool = True
+#     style_emb_on_gpu: bool = True
+#     strict_key: bool = True
+
+#     # 新：对称 loss（默认 False，先更稳）
+#     symmetric_loss: bool = False
+
+#     # 新：同情绪 negatives 处理（默认 True）
+#     mask_same_emotion_negatives: bool = True
+
+@dataclass
+class AlignConfig:
+    enable: bool = False
+    style_emb_pt: Optional[str] = None
+    loss_weight: float = 0.05
+
+    # 仍保留：用作初始化（默认 0.07）
+    temperature: float = 0.07
+
+    # ✅ 新增：可学习 logit_scale（CLIP 风格）
+    learnable_logit_scale: bool = True
+    logit_scale_max: float = 100.0  # CLIP 官方实现中会把 scale clip 到 100:contentReference[oaicite:1]{index=1}
+
+    proj_dim: int = 1024
+    normalize: bool = True
+    use_global_negatives: bool = True
+    style_emb_on_gpu: bool = True
+    strict_key: bool = True
+
+
+
+
+
+@dataclass
+class EmoSteerConfig:
+    enable: bool = False
+    steering_path: Optional[str] = None   # torch.load 后得到 steering_activations 张量
+    steering_strength: float = 0.0        # 论文里的 α :contentReference[oaicite:1]{index=1}
+    erasing_strength: float = 0.0         # 论文里的 β（后续做 erasure 用）:contentReference[oaicite:2]{index=2}
+    num_steps: int = 32                   # flow matching steps（论文示例是 32）:contentReference[oaicite:3]{index=3}
+    block_group: int = 5                  # 论文示例里常见 block_idx//5 :contentReference[oaicite:4]{index=4}
+    layers: Optional[List[int]] = None    # None=全挂；或指定 block idx 列表
+
+# @dataclass
+# class EmoSteerConfig:
+#     enable: bool = False
+#     steering_path: Optional[str] = None
+#     steering_strength: float = 0.0
+#     erasing_strength: float = 0.0
+#     layers: Optional[List[int]] = None  # None=全挂；或指定 block idx 列表
+#     # block_group 也可以删（第一份代码不需要）
+
+# ++decode_config.emosteer.enable=true \
+# ++decode_config.emosteer.steering_path=/path/to/happy_steering_activations.pt \
+# ++decode_config.emosteer.steering_strength=0.001 \
+# ++decode_config.emosteer.layers='[40,41,42,43,44,45,46,47]' \
+
+@dataclass
+class VocabConfig:
+    text_vocabsize: int = 151936
+    text_specialtokens: int = 64
+    audio_vocabsize: int = 4096
+    audio_specialtokens: int = 64
+    code_layer: int = 7
+
+    padded_text_vocabsize: int = field(init=False)
+    padded_audio_vocabsize: int = field(init=False)
+    total_audio_vocabsize: int = field(init=False)
+    total_vocabsize: int = field(init=False)
+
+    eot: int = field(init=False)   # end of text token
+    pad_t: int = field(init=False) # padding text token
+    input_t: int = field(init=False) # input text token
+    answer_t: int = field(init=False) # answer text token
+    asr: int = field(init=False)   # ASR token
+
+    eoa: int = field(init=False)   # end of audio token
+    pad_a: int = field(init=False) # padding audio token
+    input_a: int = field(init=False) # input audio token
+    answer_a: int = field(init=False) # answer audio token
+    split: int = field(init=False) # split token
+
+    def __post_init__(self):
+        self.padded_text_vocabsize = self.text_vocabsize + self.text_specialtokens
+        self.padded_audio_vocabsize = self.audio_vocabsize + self.audio_specialtokens
+        self.total_audio_vocabsize = self.padded_audio_vocabsize * self.code_layer
+        self.total_vocabsize = self.padded_text_vocabsize + self.total_audio_vocabsize
+
+        self.eot = self.text_vocabsize
+        self.pad_t = self.text_vocabsize + 1
+        self.input_t = self.text_vocabsize + 2
+        self.answer_t = self.text_vocabsize + 3
+        self.asr = self.text_vocabsize + 4
+
+        self.eoa = self.audio_vocabsize
+        self.pad_a = self.audio_vocabsize + 1
+        self.input_a = self.audio_vocabsize + 2
+        self.answer_a = self.audio_vocabsize + 3
+        self.split = self.audio_vocabsize + 4
+
+@dataclass
+class TTSAdapterConfig:
+    add_qkv_bias: Optional[bool] = True
+    bias: bool = False
+    gelu_approximate: Optional[str] = None
+    head_size: Optional[int] = 64
+    intermediate_size: Optional[int] = 4864
+    lm_head_bias: bool = False
+    mlp_class_name: str = "GptNeoxMLP"
+    n_layer: int = 6
+    n_head: int = 14
+    n_embd: int = 896
+    n_query_groups: Optional[int] = 2
+    norm_class_name: str = "RMSNorm"
+    norm_eps: float = 1e-6
+    parallel_residual: bool = False
+    rotary_percentage: float = 1
+    shared_attention_norm: bool = False
+
+    def __post_init__(self):
+        self.rope_n_elem = int(self.rotary_percentage * self.head_size)
+
+@dataclass
+class ModelConfig:
+    file: str = "examples/tts/model/slam_model_tts.py:model_factory"
+    llm_name: str = "vicuna-13b-v1.5"
+    llm_path: str = "PATH/to/LLAMA/7B"
+    llm_type: str = "decoder_only"
+    llm_dim: int = 4096
+    encoder_name: Optional[str] = None
+    encoder_ds_rate: int = 2
+    encoder_path: Optional[str] = None
+    encoder_dim: int = 1280
+    encoder_projector: str = "linear"
+    encoder_projector_ds_rate: int = 5
+    modal: str = "audio"
+    normalize: Optional[bool] = field(default=False, metadata={
+        "help": "whether input is normalized, used for models such as wavlm"
+    })
+    encoder_type: str = field(default="finetune", metadata={
+        "help": "whether model is only pretrained or finetuned, used for models such as hubert"
+    })
+    vocab_config: VocabConfig = field(default_factory=VocabConfig)
+    codec_decode: bool = False
+    codec_decoder_type: str = "SNAC"
+    codec_decoder_path: Optional[str] = None
+    encoder_path_hf: Optional[str] = None
+    code_type: str = "SNAC" 
+    group_decode: bool = False
+    group_decode_adapter_type: str = "linear"
+    whisper_decode: bool = False
+    cosyvoice_version: int = 1
+    random_init: bool = False
+    use_text_stream: bool = True
+    save_audio_token: bool= False
+    phn_tokenizer: Optional[str] = None
+
+
+@dataclass
+class PeftConfig:
+    peft_method: str = "lora" # None , llama_adapter, prefix
+    r: int = 8
+    lora_alpha: int = 32
+    target_modules:  List = field(default_factory=lambda: [ "q_proj", "v_proj","k_proj","o_proj" ])
+    bias: str = "none"
+    task_type: str = "CAUSAL_LM"
+    lora_dropout: float = 0.05
+    inference_mode: bool = False
+
+@dataclass
+class TrainConfig:
+    model_name:str = "PATH/to/LLAMA/7B"
+    enable_ddp:bool = False
+    enable_deepspeed:bool = False
+    enable_fsdp:bool = False
+    low_cpu_fsdp:bool = False
+    run_validation:bool = True
+    batch_size_training:int = 4
+    batching_strategy:str = field(default="packing", metadata={
+        "help":"alternative: padding"
+    })
+    context_length:int = 4096
+    gradient_accumulation_steps:int = 1
+    num_epochs:int = 3
+    num_workers_dataloader:int = 1
+    warmup_steps:int = 1000
+    total_steps:int = 100000
+    validation_interval:int = 1000
+    lr:float = 1e-4
+    weight_decay:float = 0.0
+    gamma:float = 0.85
+    seed:int = 42
+    use_fp16:bool = False
+    mixed_precision:bool = True
+    val_batch_size:int = 1
+
+    use_peft:bool = False
+    peft_config:PeftConfig = field(default_factory=PeftConfig)
+    output_dir:str = "PATH/to/save/PEFT/model"
+    freeze_layers:bool = False
+    num_freeze_layers:int = 1
+    quantization:bool = False
+    one_gpu:bool = False
+    save_model:bool = True
+    dist_checkpoint_root_folder:str = "PATH/to/save/FSDP/model" # will be used if using FSDP
+    dist_checkpoint_folder:str = "fine-tuned" # will be used if using FSDP
+    save_optimizer:bool = False # will be used if using FSDP
+    use_fast_kernels:bool = False # Enable using SDPA from PyTroch Accelerated Transformers, make use Flash Attention and Xformer memory-efficient kernels
+    run_test_during_validation:bool = False
+    run_test_during_validation_file:str = "test.wav"
+    run_test_during_validation_prompt:str = "<|S2S|>"
+    freeze_llm:bool = field(default=False, metadata={
+        "help": "whether to freeze llm when finetuning, should be true when use peft finetuning"
+    })
+    freeze_encoder:bool = False
+    train_embed_only:bool = False
+    train_audio_embed_only:bool = False
+    task_type:str = "TTS"
+    freeze_encoder_projector:bool = False
+    freeze_group_decode_adapter:bool = False
+    modeling_paradigm:str = field(default="parallel", metadata={
+        "help": "alternative: interleaved"
+    })
+    interleaved_text_token_num: int = 12
+    interleaved_audio_token_num: int = 36
+    # 对比学习
+    align: AlignConfig = field(default_factory=AlignConfig)
+    # find_unused_parameters: bool = False
+
+
+
+@dataclass
+class DataConfig:
+    dataset: str = "speech_dataset_tts"
+    file: str = "examples/tts/speech_dataset_tts.py:get_speech_dataset"
+    train_data_path: Optional[str] = None
+    val_data_path: Optional[str] = None
+    train_split: str = "train"
+    test_split:str = "validation"
+    prompt: Optional[str] = None
+    data_path: Optional[str] = None
+    max_words: Optional[int] = None
+    max_mel: Optional[float] = None
+    fix_length_audio: int = -1
+    inference_mode:bool = False
+    normalize: Optional[bool] = field(default=False, metadata={
+        "help": "whether input is normalized, used for models such as wavlm"
+    })
+    seed: int = 42
+    split_size: float = 0.1
+    vocab_config: VocabConfig = field(default_factory=VocabConfig)
+    load_from_cache_file: bool = False
+    task_type: str = "TTS"
+    upsampling_factor: int = 1
+    upsample_method: str = "repeat"
+    num_latency_tokens: int = 0
+    do_layershift: bool = True
+    use_emo: bool = False
+    use_text_stream: bool = True
+    modeling_paradigm: str = field(default="parallel", metadata={
+        "help": "alternative: interleaved"
+    })
+    interleaved_text_token_num: int = 12
+    interleaved_audio_token_num: int = 36
+
+@dataclass
+class DecodeConfig:
+    do_sample: bool = False
+    max_new_tokens: int = 256
+    min_length: int = 10
+    temperature: float = 1.0
+    top_k: int = 50
+    top_p: float = 1.0
+    num_beams: int = 1
+    num_return_sequences: int = 1
+    num_samples: int = 1
+    max_time: float = 0.0
+    text_repetition_penalty: float = 1.0
+    audio_repetition_penalty: float = 1.0
+    length_penalty: float = 1.0
+    early_stopping: bool = False
+    no_repeat_ngram_size: int = 0
+    bad_words_ids: List = field(default_factory=list)
+    num_beam_groups: int = 1
+    diversity_penalty: float = 0.0
+    task_type: str = "TTS"
+    decode_text_only: bool = False
+    streaming: bool = False
+    stream_stride: int = 4
+    upsampling_factor: int = 1
+    input_text: bool = False
+    do_layershift: bool = True
+    num_latency_tokens: int = 0
+    # 推理阶段注入情感激活
+    emosteer: EmoSteerConfig = field(default_factory=EmoSteerConfig)
+
+@dataclass
+class FSDPConfig:
+    mixed_precision: bool = True
+    use_fp16: bool = False
+    sharding_strategy: str = "NO_SHARD" #ShardingStrategy.NO_SHARD #MZY: set NO_SHARD when use DDP
+    checkpoint_type: str = "SHARDED_STATE_DICT"  # alternatively can use SHARDED_STATE_DICT save one file per rank, and can resize the world-size.
+    fsdp_activation_checkpointing: bool = True
+    fsdp_cpu_offload: bool = False
+    pure_bf16: bool = False
+    optimizer: str = "AdamW"
+
+@dataclass
+class LogConfig:
+    use_wandb: bool = False
+    wandb_dir: str = ""
+    wandb_entity_name: str = "project_name"
+    wandb_project_name: str = "project_name"
+    wandb_exp_name: str = "exp_name"
+    log_file: str = ""
+    log_interval: int = 10
+    online_output_dir: Optional[str] = None
+
