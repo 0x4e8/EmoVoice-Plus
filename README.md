@@ -2,7 +2,7 @@
 
 ![对比学习训练范式](assets/stage-1.png)
 
-![数据集构造Pipeline与情感激活提取](assets/stage-2-2.png)
+![数据集构造Pipeline与情感激活提取](assets/stage-2-1.png)
 
 ![推理总范式](assets/stage-2-2.png)
 
